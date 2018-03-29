@@ -10,6 +10,8 @@ import {
   ImageBackground
 } from 'react-native';
 
+import Enemy from './app/components/Enemy';
+
 type Props = {};
 export default class Game extends Component<Props> {
 
@@ -18,6 +20,14 @@ export default class Game extends Component<Props> {
     this.state = {
       movePlayerVal: new Animated.Value(40),
       playerSide: 'left',
+      points: 0,
+
+      moveEnemyVal: new Animated.Value(0),
+      enemyStartPosX: 0,
+      enemySide: 'left',
+      enemySpeed: 4200,
+
+      gameOver: false,
     }
   }
 
@@ -33,7 +43,8 @@ export default class Game extends Component<Props> {
         <View style={styles.points}>
           <Text style={{
             fontWeight: 'bold',
-            fontSize: 40
+            fontSize: 40,
+            color: '#fff'
           }}>
             {this.state.points}
           </Text>
@@ -52,6 +63,10 @@ export default class Game extends Component<Props> {
          ]
        }}
       />
+
+      <Enemy enemyImg={require('./app/img/asteroid.png')}
+        enemyStartPosX={this.state.enemyStartPosX}
+        moveEnemyVal={this.state.moveEnemyVal} />
 
       <View style={styles.controls}>
         <Text style={styles.left} onPress={ () => this.movePlayer('left') }> {'<'} </Text>
@@ -87,6 +102,68 @@ export default class Game extends Component<Props> {
       ).start();
 
     }
+  }
+
+  componentDidMount() {
+    this.animateEnemy();
+  }
+
+  animateEnemy() {
+    this.state.moveEnemyVal.setValue(-100);
+    var windowHeight = Dimensions.get('window').height;
+
+    //generate left distance for enemyImg
+    var xDistance = Math.floor(Math.random() * 2) + 1;
+
+    if (xDistance === 2) {
+      xDistance = 40;
+      this.setState({ enemySide: 'left' });
+    } else {
+      xDistance = Dimensions.get('window').width -140;
+      // enemy is on the right side
+      this.setState({ enemySide: 'right' });
+    }
+    this.setState({ enemyStartPosX: xDistance });
+
+    //interval to check for collision each 50 ms
+    var refreshInterval;
+    refreshIntervalId = setInterval(() => {
+      //collision logic
+      //if enemy collides with player and they are on the same side
+      // and the enemy has not passed the player safely
+      if (this.state.moveEnemyVal._value > windowHeight - 280
+            && this.state.moveEnemyVal._value < windowHeight - 180
+            && this.state.playerSide == this.state.enemySide) {
+              clearInterval(refreshIntervalId)
+              this.setState({ gameOver: true });
+              this.gameOver();
+            }
+    }, 50);
+
+    //increase enemy speed every 10 seconds
+    setInterval(() => {
+      this.setState({ enemySpeed: this.state.enemySpeed - 50 })
+    }, 10000)
+
+    //Animate the enemy
+    Animated.timing(
+      this.state.moveEnemyVal,
+      {
+        toValue: Dimensions.get('window').height,
+        duration: this.state.enemySpeed,
+      }
+    ).start(event => {
+      // if no collision is detected, restart the enemy animation
+      if (event.finished && this.state.gameOver == false) {
+        clearInterval(refreshIntervalId)
+        this.setState({ points: ++this.state.points });
+        this.animateEnemy();
+      }
+    })
+  }
+
+  gameOver() {
+    alert("Kapow! You Lose.")
   }
 }
 
